@@ -1,0 +1,4 @@
+packages: ./opentracing-client
+          ./test-lib
+          ./test-exe
+          ./jaeger-client

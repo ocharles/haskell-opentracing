@@ -1,0 +1,14 @@
+{-# language PatternSynonyms #-}
+
+signature OpenTracing.Tag where
+
+  import Data.Int
+  import Data.Text
+
+  data TagValue
+
+  intTag :: Int64 -> TagValue
+
+  stringTag :: Text -> TagValue
+
+  boolTag :: Bool -> TagValue

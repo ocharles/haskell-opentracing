@@ -1,0 +1,12 @@
+signature OpenTracing where
+
+  import Data.Text
+  import OpenTracing.Tag
+
+  data Tracer
+
+  data Span
+
+  inSpan :: Tracer -> Text -> IO a -> IO a
+
+  tagActiveSpan :: Tracer -> Text -> TagValue -> IO ()
