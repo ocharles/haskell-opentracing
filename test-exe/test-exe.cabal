@@ -23,6 +23,9 @@ executable test-exe
                      , jaeger-client
                      , opentracing-client
                      , test-lib
+                     , warp
+                     , scotty
+                     , wai-opentracing
   mixins:
    jaeger-client (Jaeger as OpenTracing, Jaeger as OpenTracing.Tag, Jaeger as Jaeger)
   -- hs-source-dirs:
