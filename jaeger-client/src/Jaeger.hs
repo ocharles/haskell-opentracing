@@ -1,12 +1,18 @@
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 
 module Jaeger where
 
-import Control.Exception
+import GHC.Generics (Generic)
+import Control.Monad (msum)
 import qualified Agent as Thrift
+import Codec.Serialise
 import qualified Collector as Thrift
+import Control.Exception
 import qualified Data.ByteString.Lazy as LBS
 import Data.Foldable (for_)
 import Data.IORef
@@ -19,6 +25,7 @@ import Data.Time
 import Data.Time.Clock.POSIX
 import qualified Data.Vector as V
 import qualified Jaeger_Types as Thrift
+import Network.HTTP.Types.Header (Header, HeaderName)
 import Network.Socket hiding (send)
 import Network.Socket.ByteString.Lazy
 import System.Clock
@@ -40,6 +47,7 @@ data Span = Span
   , spanTraceId :: !Int64
   , spanDuration :: !(Maybe Int64)
   , spanTags :: !(Map.Map Text TagValue)
+  , spanFollowsFrom :: ![SpanContext]
   }
 
 
@@ -137,7 +145,11 @@ inSpan tracer@Tracer{tracerActiveSpan} spanOperationName io =
 
         let
           span =
-            Span{spanDuration = Nothing, spanTags = mempty, ..}
+            Span { spanDuration = Nothing
+                 , spanTags = mempty
+                 , spanFollowsFrom = []
+                 , ..
+                 }
 
         writeIORef tracerActiveSpan (Just span)
 
@@ -198,7 +210,24 @@ reportSpan tracer span =
               , Thrift.span_operationName =
                   LT.fromStrict (spanOperationName span)
               , Thrift.span_references =
-                  Nothing
+                  case spanFollowsFrom span of
+                    [ ] ->
+                      Nothing
+
+                    follows ->
+                      Just $ V.fromList $
+                      map
+                        (\SpanContext {sctxSpanId, sctxTraceId } ->
+                           Thrift.SpanRef { Thrift.spanRef_refType =
+                                              Thrift.FOLLOWS_FROM
+                                          , Thrift.spanRef_traceIdLow =
+                                              sctxTraceId
+                                          , Thrift.spanRef_traceIdHigh =
+                                              0
+                                          , Thrift.spanRef_spanId =
+                                              sctxSpanId
+                                          })
+                        follows
               , Thrift.span_flags =
                   0
               , Thrift.span_startTime =
@@ -258,3 +287,43 @@ reportSpan tracer span =
 toMicroSeconds :: TimeSpec -> Int64
 toMicroSeconds ts =
   round (fromIntegral (toNanoSecs ts) / (1000 :: Double))
+
+
+class Carrier a where
+  inject :: Tracer -> Span -> a -> a
+  extract :: Tracer -> a -> Maybe SpanContext
+
+
+instance Carrier [Header] where
+  extract _ =
+    msum .
+    map (either (const Nothing) Just . deserialiseOrFail . LBS.fromStrict . snd) .
+    filter (\(n, _) -> n == spanHeader)
+
+  inject _ span headers =
+    (spanHeader, LBS.toStrict (serialise (spanToSpanContext span)))
+      : filter (\(n, _) -> n /= spanHeader) headers
+
+
+spanHeader :: HeaderName
+spanHeader =
+  "X-OpenTracing-Span"
+
+
+spanToSpanContext :: Span -> SpanContext
+spanToSpanContext Span{spanId = sctxSpanId, spanTraceId = sctxTraceId} =
+  SpanContext {..}
+
+
+data SpanContext = SpanContext
+  { sctxTraceId :: !Int64
+  , sctxSpanId :: !Int64
+  }
+  deriving (Generic, Serialise)
+
+
+activeSpanFollowsFrom :: Tracer -> SpanContext -> IO ()
+activeSpanFollowsFrom Tracer{tracerActiveSpan} ctx =
+  modifyIORef tracerActiveSpan $
+  fmap $ \span ->
+    span { spanFollowsFrom = ctx : spanFollowsFrom span }

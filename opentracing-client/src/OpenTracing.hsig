@@ -1,12 +1,32 @@
+{-# language FlexibleInstances #-}
+
 signature OpenTracing where
 
-  import Data.Text
+  import Data.Text (Text)
+  import Data.Map (Map)
+  import Network.HTTP.Types.Header (Header)
   import OpenTracing.Tag
 
   data Tracer
 
   data Span
 
+  data SpanContext
+
   inSpan :: Tracer -> Text -> IO a -> IO a
 
   tagActiveSpan :: Tracer -> Text -> TagValue -> IO ()
+
+  -- setActiveSpanBaggage :: Tracer -> Text -> Text -> IO ()
+
+  activeSpanFollowsFrom :: Tracer -> SpanContext -> IO ()
+
+  activeSpanIsAChildOf :: Tracer -> SpanContext -> IO ()
+
+  class Carrier a where
+    inject :: Tracer -> Span -> a -> a
+    extract :: Tracer -> a -> Maybe SpanContext
+
+  instance Carrier [Header]
+
+  -- instance Carrier (Map Text Text)
