@@ -13,3 +13,6 @@ particular, we have
 
 * `test-exe`: An example application that uses `test-lib` and combines it with
   `jaeger-client`.
+  
+* `wai-opentracing`: Middleware that traces all WAI requests. The operation name
+  of each span is the absolute path received to the middleware.
