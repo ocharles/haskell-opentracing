@@ -38,6 +38,8 @@ import qualified Thrift.Transport as Thrift
 import qualified Thrift.Transport.IOBuffer as Thrift
 import qualified Thrift.Types as Thrift
 
+data Reference = ChildOf !SpanContext | FollowsFrom !SpanContext
+
 data Span = Span
   { spanOperationName :: !Text
   , spanOpenedAt :: !POSIXTime
@@ -47,7 +49,7 @@ data Span = Span
   , spanTraceId :: !Int64
   , spanDuration :: !(Maybe Int64)
   , spanTags :: !(Map.Map Text TagValue)
-  , spanFollowsFrom :: ![SpanContext]
+  , spanReferences :: ![Reference]
   }
 
 
@@ -147,7 +149,7 @@ inSpan tracer@Tracer{tracerActiveSpan} spanOperationName io =
           span =
             Span { spanDuration = Nothing
                  , spanTags = mempty
-                 , spanFollowsFrom = []
+                 , spanReferences = []
                  , ..
                  }
 
@@ -210,23 +212,28 @@ reportSpan tracer span =
               , Thrift.span_operationName =
                   LT.fromStrict (spanOperationName span)
               , Thrift.span_references =
-                  case spanFollowsFrom span of
+                  case spanReferences span of
                     [ ] ->
                       Nothing
 
                     follows ->
                       Just $ V.fromList $
                       map
-                        (\SpanContext {sctxSpanId, sctxTraceId } ->
-                           Thrift.SpanRef { Thrift.spanRef_refType =
-                                              Thrift.FOLLOWS_FROM
-                                          , Thrift.spanRef_traceIdLow =
-                                              sctxTraceId
-                                          , Thrift.spanRef_traceIdHigh =
-                                              0
-                                          , Thrift.spanRef_spanId =
-                                              sctxSpanId
-                                          })
+                        (\ref ->
+                           let toSpanRef refType ctx = Thrift.SpanRef {
+                                              Thrift.spanRef_refType =
+                                                refType
+                                            , Thrift.spanRef_traceIdLow =
+                                                sctxTraceId ctx
+                                            , Thrift.spanRef_traceIdHigh =
+                                                0
+                                            , Thrift.spanRef_spanId =
+                                                sctxSpanId ctx
+                                            }
+                           in
+                           case ref of
+                             ChildOf ctx -> toSpanRef Thrift.CHILD_OF ctx
+                             FollowsFrom ctx -> toSpanRef Thrift.FOLLOWS_FROM ctx)
                         follows
               , Thrift.span_flags =
                   0
@@ -326,4 +333,10 @@ activeSpanFollowsFrom :: Tracer -> SpanContext -> IO ()
 activeSpanFollowsFrom Tracer{tracerActiveSpan} ctx =
   modifyIORef tracerActiveSpan $
   fmap $ \span ->
-    span { spanFollowsFrom = ctx : spanFollowsFrom span }
+    span { spanReferences = FollowsFrom ctx : spanReferences span }
+
+activeSpanIsAChildOf :: Tracer -> SpanContext -> IO ()
+activeSpanIsAChildOf Tracer{tracerActiveSpan} ctx =
+  modifyIORef tracerActiveSpan $
+  fmap $ \span ->
+    span { spanReferences = ChildOf ctx : spanReferences span }
