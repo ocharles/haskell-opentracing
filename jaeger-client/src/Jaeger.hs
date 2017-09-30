@@ -7,12 +7,13 @@
 
 module Jaeger where
 
-import GHC.Generics (Generic)
-import Control.Monad (msum)
+import Control.Monad
 import qualified Agent as Thrift
 import Codec.Serialise
 import qualified Collector as Thrift
 import Control.Exception
+import Control.Monad (msum)
+import Data.ByteString.Base64 as B64
 import qualified Data.ByteString.Lazy as LBS
 import Data.Foldable (for_)
 import Data.IORef
@@ -20,10 +21,12 @@ import Data.Int
 import qualified Data.Map.Strict as Map
 import Data.Maybe
 import Data.Text (Text)
+import Data.Text.Encoding (decodeUtf8, encodeUtf8)
 import qualified Data.Text.Lazy as LT
 import Data.Time
 import Data.Time.Clock.POSIX
 import qualified Data.Vector as V
+import GHC.Generics (Generic)
 import qualified Jaeger_Types as Thrift
 import Network.HTTP.Types.Header (Header, HeaderName)
 import Network.Socket hiding (send)
@@ -311,6 +314,17 @@ instance Carrier [Header] where
     (spanHeader, LBS.toStrict (serialise (spanToSpanContext span)))
       : filter (\(n, _) -> n /= spanHeader) headers
 
+instance Carrier (Map.Map Text Text) where
+  extract _ =
+    hush . deserialiseOrFail . LBS.fromStrict <=<
+    hush. B64.decode . encodeUtf8 <=<
+    Map.lookup "Span"
+    where hush = either (const Nothing) Just
+  
+  inject _ span =
+    Map.insert "Span"
+      (decodeUtf8 (B64.encode (LBS.toStrict (serialise (spanToSpanContext span)))))
+  
 
 spanHeader :: HeaderName
 spanHeader =

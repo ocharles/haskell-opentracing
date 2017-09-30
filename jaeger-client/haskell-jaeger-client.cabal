@@ -38,6 +38,7 @@ library
                        unordered-containers >= 0.2.8.0,
                        vector >= 0.11.0.0,
                        http-types,
-                       serialise
+                       serialise,
+                       base64-bytestring
   hs-source-dirs:      src, src-gen
   default-language:    Haskell2010
