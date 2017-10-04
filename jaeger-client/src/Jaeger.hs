@@ -53,6 +53,7 @@ data Span = Span
   , spanDuration :: !(Maybe Int64)
   , spanTags :: !(Map.Map Text TagValue)
   , spanReferences :: ![Reference]
+  , spanBaggage :: !(Map.Map Text Text)
   }
 
 
@@ -153,6 +154,7 @@ inSpan tracer@Tracer{tracerActiveSpan} spanOperationName io =
             Span { spanDuration = Nothing
                  , spanTags = mempty
                  , spanReferences = []
+                 , spanBaggage = mempty
                  , ..
                  }
 
@@ -240,8 +242,7 @@ reportSpan tracer span =
                         follows
               , Thrift.span_flags =
                   0
-              , Thrift.span_startTime =
-                  round (spanOpenedAt span / 0.000001)
+              , Thrift.span_startTime = startTime
               , Thrift.span_duration =
                   fromMaybe 0 (spanDuration span)
               , Thrift.span_tags =
@@ -252,7 +253,23 @@ reportSpan tracer span =
                     tags ->
                       Just (V.fromList (map (uncurry makeTag) tags))
               , Thrift.span_logs =
-                  Nothing
+                  case Map.toList (spanBaggage span) of
+                    [] ->
+                      Nothing
+
+                    baggage ->
+                      Just
+                        (V.fromList
+                           (map
+                              (\(k, v) ->
+                                 Thrift.Log { log_timestamp = startTime
+                                            , log_fields =
+                                                V.fromList [ makeTag "event" (StringTag "baggage")
+                                                           , makeTag "key" (StringTag k)
+                                                           , makeTag "value" (StringTag v)
+                                                           ]
+                                            })
+                              baggage))
               })))
 
     Thrift.writeMessageEnd proto
@@ -260,6 +277,9 @@ reportSpan tracer span =
     Thrift.tFlush tracer
 
   where
+
+    startTime =
+      round (spanOpenedAt span / 0.000001)
 
     makeTag k v =
       Thrift.Tag
@@ -354,3 +374,9 @@ activeSpanIsAChildOf Tracer{tracerActiveSpan} ctx =
   modifyIORef tracerActiveSpan $
   fmap $ \span ->
     span { spanReferences = ChildOf ctx : spanReferences span }
+
+setActiveSpanBaggage :: Tracer -> Text -> Text -> IO ()
+setActiveSpanBaggage Tracer{tracerActiveSpan} k v =
+  modifyIORef tracerActiveSpan $
+  fmap $ \span ->
+    span { spanBaggage = Map.insert k v (spanBaggage span) }

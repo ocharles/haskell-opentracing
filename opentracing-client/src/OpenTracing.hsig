@@ -17,7 +17,7 @@ signature OpenTracing where
 
   tagActiveSpan :: Tracer -> Text -> TagValue -> IO ()
 
-  -- setActiveSpanBaggage :: Tracer -> Text -> Text -> IO ()
+  setActiveSpanBaggage :: Tracer -> Text -> Text -> IO ()
 
   activeSpanFollowsFrom :: Tracer -> SpanContext -> IO ()
 
