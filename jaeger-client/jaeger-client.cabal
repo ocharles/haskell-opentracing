@@ -1,13 +1,13 @@
 name:                jaeger-client
 version:             0.1.0.0
--- synopsis:            
--- description:         
+-- synopsis:
+-- description:
 license:             BSD3
 license-file:        LICENSE
 author:              Oliver Charles
 maintainer:          ollie@ocharles.org.uk
--- copyright:           
--- category:            
+-- copyright:
+-- category:
 build-type:          Simple
 extra-source-files:  ChangeLog.md
 cabal-version:       >=1.10
@@ -24,19 +24,19 @@ library
                        Agent_Types
                        Zipkincore_Types
   other-extensions:    DeriveDataTypeable, DeriveGeneric, OverloadedStrings
-  build-depends:       QuickCheck >= 2.9.2,
-                       base >=4.9 && <4.11,
-                       bytestring >=0.10 && <0.11,
+  build-depends:       QuickCheck,
+                       base,
+                       bytestring,
                        clock,
-                       containers >= 0.5.7.1,
-                       hashable >= 1.2.6.1,
-                       network >= 2.6.3.2,
-                       random >= 1.1,
-                       text >= 1.2.2.1,
+                       containers,
+                       hashable ,
+                       network ,
+                       random ,
+                       text ,
                        thrift,
-                       time >= 1.6.0.1,
-                       unordered-containers >= 0.2.8.0,
-                       vector >= 0.11.0.0,
+                       time ,
+                       unordered-containers ,
+                       vector ,
                        http-types,
                        serialise,
                        base64-bytestring

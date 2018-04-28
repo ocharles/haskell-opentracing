@@ -13,7 +13,7 @@
 -- DO NOT EDIT UNLESS YOU ARE SURE YOU KNOW WHAT YOU ARE DOING --
 -----------------------------------------------------------------
 
-module ZipkinCollector_Iface where
+module BaggageRestrictionManager_Iface where
 import Prelude (($), (.), (>>=), (==), (++))
 import qualified Prelude as P
 import qualified Control.Exception as X
@@ -38,7 +38,7 @@ import qualified Thrift.Types as T
 import qualified Thrift.Arbitraries as T
 
 
-import Zipkincore_Types
+import Baggage_Types
 
-class ZipkinCollector_Iface a where
-  submitZipkinBatch :: a -> (Vector.Vector Span) -> P.IO (Vector.Vector Response)
+class BaggageRestrictionManager_Iface a where
+  getBaggageRestrictions :: a -> LT.Text -> P.IO (Vector.Vector BaggageRestriction)

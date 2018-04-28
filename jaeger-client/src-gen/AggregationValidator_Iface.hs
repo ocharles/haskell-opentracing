@@ -13,7 +13,7 @@
 -- DO NOT EDIT UNLESS YOU ARE SURE YOU KNOW WHAT YOU ARE DOING --
 -----------------------------------------------------------------
 
-module ZipkinCollector_Iface where
+module AggregationValidator_Iface where
 import Prelude (($), (.), (>>=), (==), (++))
 import qualified Prelude as P
 import qualified Control.Exception as X
@@ -38,7 +38,7 @@ import qualified Thrift.Types as T
 import qualified Thrift.Arbitraries as T
 
 
-import Zipkincore_Types
+import Aggregation_validator_Types
 
-class ZipkinCollector_Iface a where
-  submitZipkinBatch :: a -> (Vector.Vector Span) -> P.IO (Vector.Vector Response)
+class AggregationValidator_Iface a where
+  validateTrace :: a -> LT.Text -> P.IO ValidateTraceResponse

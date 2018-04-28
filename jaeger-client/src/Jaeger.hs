@@ -1,59 +1,59 @@
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DeriveAnyClass    #-}
+{-# LANGUAGE DeriveGeneric     #-}
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE NamedFieldPuns    #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE RecordWildCards   #-}
 
 module Jaeger where
 
-import Control.Monad
-import qualified Agent as Thrift
-import Codec.Serialise
-import qualified Collector as Thrift
-import Control.Exception
-import Control.Monad (msum)
-import Data.ByteString.Base64 as B64
-import qualified Data.ByteString.Lazy as LBS
-import Data.Foldable (for_)
-import Data.IORef
-import Data.Int
-import qualified Data.Map.Strict as Map
-import Data.Maybe
-import Data.Text (Text)
-import Data.Text.Encoding (decodeUtf8, encodeUtf8)
-import qualified Data.Text.Lazy as LT
-import Data.Time
-import Data.Time.Clock.POSIX
-import qualified Data.Vector as V
-import GHC.Generics (Generic)
-import qualified Jaeger_Types as Thrift
-import Network.HTTP.Types.Header (Header, HeaderName)
-import Network.Socket hiding (send)
-import Network.Socket.ByteString.Lazy
-import System.Clock
-import System.Random
+import qualified Agent                          as Thrift
+import           Codec.Serialise
+import qualified Collector                      as Thrift
+import           Control.Exception
+import           Control.Monad
+import           Control.Monad                  (msum)
+import           Data.ByteString.Base64         as B64
+import qualified Data.ByteString.Lazy           as LBS
+import           Data.Foldable                  (for_)
+import           Data.Int
+import           Data.IORef
+import qualified Data.Map.Strict                as Map
+import           Data.Maybe
+import           Data.Text                      (Text)
+import           Data.Text.Encoding             (decodeUtf8, encodeUtf8)
+import qualified Data.Text.Lazy                 as LT
+import           Data.Time
+import           Data.Time.Clock.POSIX
+import qualified Data.Vector                    as V
+import           GHC.Generics                   (Generic)
+import qualified Jaeger_Types                   as Thrift
+import           Network.HTTP.Types.Header      (Header, HeaderName)
+import           Network.Socket                 hiding (send)
+import           Network.Socket.ByteString.Lazy
+import           System.Clock
+import           System.Random
 import qualified Thrift
-import qualified Thrift.Protocol as Thrift
-import qualified Thrift.Protocol.Binary as Thrift
-import qualified Thrift.Protocol.Compact as Thrift
-import qualified Thrift.Transport as Thrift
-import qualified Thrift.Transport.IOBuffer as Thrift
-import qualified Thrift.Types as Thrift
+import qualified Thrift.Protocol                as Thrift
+import qualified Thrift.Protocol.Binary         as Thrift
+import qualified Thrift.Protocol.Compact        as Thrift
+import qualified Thrift.Transport               as Thrift
+import qualified Thrift.Transport.IOBuffer      as Thrift
+import qualified Thrift.Types                   as Thrift
 
 data Reference = ChildOf !SpanContext | FollowsFrom !SpanContext
 
 data Span = Span
   { spanOperationName :: !Text
-  , spanOpenedAt :: !POSIXTime
+  , spanOpenedAt      :: !POSIXTime
   , spanMonotonicTime :: !TimeSpec
-  , spanId :: !Int64
-  , spanParent :: !(Maybe Span)
-  , spanTraceId :: !Int64
-  , spanDuration :: !(Maybe Int64)
-  , spanTags :: !(Map.Map Text TagValue)
-  , spanReferences :: ![Reference]
-  , spanBaggage :: !(Map.Map Text Text)
+  , spanId            :: !Int64
+  , spanParent        :: !(Maybe Span)
+  , spanTraceId       :: !Int64
+  , spanDuration      :: !(Maybe Int64)
+  , spanTags          :: !(Map.Map Text TagValue)
+  , spanReferences    :: ![Reference]
+  , spanBaggage       :: !(Map.Map Text Text)
   }
 
 
@@ -69,10 +69,10 @@ boolTag = BoolTag
 stringTag = StringTag
 
 data Tracer = Tracer
-  { tracerSocket :: !Socket
-  , tracerWriteBuffer :: !Thrift.WriteBuffer
+  { tracerSocket        :: !Socket
+  , tracerWriteBuffer   :: !Thrift.WriteBuffer
   , tracerConfiguration :: !TracerConfiguration
-  , tracerActiveSpan :: !(IORef (Maybe Span))
+  , tracerActiveSpan    :: !(IORef (Maybe Span))
   }
 
 
@@ -199,9 +199,8 @@ reportSpan tracer span =
       TracerConfiguration{tracerServiceName} =
         tracerConfiguration
 
-    Thrift.writeMessageBegin proto ("emitBatch", Thrift.M_ONEWAY, 0)
-
-    Thrift.write_EmitBatch_args proto
+    Thrift.writeMessage proto ("emitBatch", Thrift.M_ONEWAY, 0) $
+      Thrift.write_EmitBatch_args proto
       (Thrift.EmitBatch_args
         (Thrift.Batch
           (Thrift.Process (LT.fromStrict tracerServiceName) Nothing)
@@ -272,8 +271,6 @@ reportSpan tracer span =
                               baggage))
               })))
 
-    Thrift.writeMessageEnd proto
-
     Thrift.tFlush tracer
 
   where
@@ -286,31 +283,31 @@ reportSpan tracer span =
         { tag_key = LT.fromStrict k
         , tag_vType =
             case v of
-              BoolTag{} -> Thrift.BOOL
+              BoolTag{}   -> Thrift.BOOL
               StringTag{} -> Thrift.STRING
               DoubleTag{} -> Thrift.DOUBLE
-              IntTag{} -> Thrift.LONG
+              IntTag{}    -> Thrift.LONG
               BinaryTag{} -> Thrift.BINARY
         , tag_vStr =
             case v of
               StringTag t -> Just (LT.fromStrict t)
-              _ -> Nothing
+              _           -> Nothing
         , tag_vDouble =
             case v of
               DoubleTag a -> Just a
-              _ -> Nothing
+              _           -> Nothing
         , tag_vBool =
             case v of
               BoolTag a -> Just a
-              _ -> Nothing
+              _         -> Nothing
         , tag_vLong =
             case v of
               IntTag a -> Just a
-              _ -> Nothing
+              _        -> Nothing
         , tag_vBinary =
             case v of
               BinaryTag a -> Just a
-              _ -> Nothing
+              _           -> Nothing
         }
 
 
@@ -340,11 +337,11 @@ instance Carrier (Map.Map Text Text) where
     hush. B64.decode . encodeUtf8 <=<
     Map.lookup "Span"
     where hush = either (const Nothing) Just
-  
+
   inject _ span =
     Map.insert "Span"
       (decodeUtf8 (B64.encode (LBS.toStrict (serialise (spanToSpanContext span)))))
-  
+
 
 spanHeader :: HeaderName
 spanHeader =
@@ -358,7 +355,7 @@ spanToSpanContext Span{spanId = sctxSpanId, spanTraceId = sctxTraceId} =
 
 data SpanContext = SpanContext
   { sctxTraceId :: !Int64
-  , sctxSpanId :: !Int64
+  , sctxSpanId  :: !Int64
   }
   deriving (Generic, Serialise)
 

@@ -1,0 +1,16 @@
+resolver: lts-11.6
+
+packages:
+- location:
+    git: https://github.com/apache/thrift/
+    commit: 0293c3643b0075b510b9d92b2cc39b6d5e0fadb8
+  extra-dep: true
+  subdirs:
+    - lib/hs
+- jaeger-client
+# - opentracing-client
+# - wai-opentracing
+
+extra-deps:
+  - serialise-0.2.0.0
+  - cborg-0.2.0.0
