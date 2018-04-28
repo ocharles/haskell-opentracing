@@ -1,17 +1,17 @@
-{-# language FlexibleContexts #-}
-{-# language GADTs #-}
-{-# language GeneralizedNewtypeDeriving #-}
-{-# language UndecidableSuperClasses #-}
-{-# language UndecidableInstances #-}
+{-# LANGUAGE FlexibleContexts           #-}
+{-# LANGUAGE GADTs                      #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE UndecidableInstances       #-}
+{-# LANGUAGE UndecidableSuperClasses    #-}
 
 module Control.Monad.OpenTracing where
 
-import Data.Text
-import Control.Monad.IO.Unlift
-import Control.Monad.Trans.Class
-import Control.Monad.IO.Class
-import Control.Monad.Trans.Reader
-import OpenTracing
+import           Control.Monad.IO.Class
+import           Control.Monad.IO.Unlift
+import           Control.Monad.Trans.Class
+import           Control.Monad.Trans.Reader
+import           Data.Text
+import           Jaeger
 
 class MonadUnliftIO m => MonadTracing m where
   askTracer :: m Tracer
@@ -35,4 +35,4 @@ inSpan operationName action =
   do
     UnliftIO unlift <- askUnliftIO
     t <- askTracer
-    liftIO (OpenTracing.inSpan t operationName (unlift action))
+    liftIO (Jaeger.inSpan t operationName (unlift action))

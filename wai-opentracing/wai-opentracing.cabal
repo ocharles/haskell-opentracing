@@ -20,7 +20,7 @@ library
   -- other-modules:
   -- other-extensions:
   build-depends:       base
-                     , opentracing-client
+                     , jaeger-client
                      , text
                      , wai
   hs-source-dirs:      src

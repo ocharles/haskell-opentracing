@@ -20,6 +20,7 @@ import           Data.Int
 import           Data.IORef
 import qualified Data.Map.Strict                as Map
 import           Data.Maybe
+import           Data.Monoid
 import           Data.Text                      (Text)
 import           Data.Text.Encoding             (decodeUtf8, encodeUtf8)
 import qualified Data.Text.Lazy                 as LT
@@ -85,7 +86,6 @@ instance Thrift.Transport Tracer where
       send (tracerSocket t) bytes
 
       return ()
-
 
   tWrite =
     Thrift.writeBuf . tracerWriteBuffer
