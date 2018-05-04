@@ -74,7 +74,12 @@ data Tracer = Tracer
   , tracerWriteBuffer   :: !Thrift.WriteBuffer
   , tracerConfiguration :: !TracerConfiguration
   , tracerActiveSpan    :: !(IORef (Maybe Span))
+  , tracerIdGenerator   :: !(IO Int64)
   }
+
+
+tracingHeader :: HeaderName
+tracingHeader = "uber-tracing-id"
 
 
 instance Thrift.Transport Tracer where
@@ -118,7 +123,7 @@ openTracer tracerConfiguration@TracerConfiguration{tracerHostName, tracerPort, t
     tracerActiveSpan <-
       newIORef Nothing
 
-    return Tracer {..}
+    return Tracer { tracerIdGenerator = randomIO, ..}
 
 
 inSpan :: Tracer -> Text -> IO a -> IO a
