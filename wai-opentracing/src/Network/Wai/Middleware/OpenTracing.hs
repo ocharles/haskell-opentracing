@@ -4,10 +4,13 @@
 module Network.Wai.Middleware.OpenTracing where
 
 import           Data.IORef
-import qualified Data.Text          as T
-import           Data.Text.Encoding (encodeUtf8)
-import qualified Data.Text.Lazy     as LT
+import           Data.List                 (find)
+import qualified Data.Text                 as T
+import           Data.Text.Encoding        (decodeUtf8, encodeUtf8)
+import qualified Data.Text.Lazy            as LT
+import           Data.Text.Read
 import           Jaeger
+import           Network.HTTP.Types.Header
 import           Network.Wai
 
 -- | Manages <http://opentracing.io/ OpenTracing> spans over a WAI application
@@ -22,11 +25,17 @@ import           Network.Wai
 -- identifier so that downstream spans can be correctly linked to the whole request.
 openTracingMiddleware :: Tracer -> Middleware
 openTracingMiddleware tracer@(Tracer {tracerActiveSpan}) app = \req onResponse ->
-  inSpan tracer (T.intercalate "/" (pathInfo req)) $
-  (do
+  inSpan tracer (T.intercalate "/" (pathInfo req)) (getTracingHeaderVal $ requestHeaders req) $ do
       activeSpanM <- readIORef tracerActiveSpan
       case activeSpanM of
         Nothing -> app req onResponse
         Just activeSpan ->
           app req{requestHeaders = (tracingHeader, encodeUtf8 $ T.pack $ show $ spanId activeSpan) : (requestHeaders req)} onResponse
-  )
+
+getTracingHeaderVal :: RequestHeaders -> Maybe TraceId
+getTracingHeaderVal headers = do
+  (_, valueBS) <- find (\(headerName, _) -> headerName == tracingHeader) headers
+  case decimal $ decodeUtf8 valueBS of
+    Left _            -> Nothing
+    Right (_, "")     -> Nothing
+    Right (value, _ ) -> Just value

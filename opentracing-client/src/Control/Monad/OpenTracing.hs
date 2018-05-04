@@ -35,4 +35,4 @@ inSpan operationName action =
   do
     UnliftIO unlift <- askUnliftIO
     t <- askTracer
-    liftIO (Jaeger.inSpan t operationName (unlift action))
+    liftIO (Jaeger.inSpan t operationName Nothing (unlift action))
