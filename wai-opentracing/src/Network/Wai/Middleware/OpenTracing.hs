@@ -28,7 +28,7 @@ openTracingMiddleware :: Tracer -> Middleware
 openTracingMiddleware tracer@(Tracer {tracerActiveSpan}) app = \req onResponse ->
   let parentIdM = getTracingHeaderVal $ requestHeaders req in
   inSpan tracer (T.intercalate "/" (pathInfo req)) parentIdM $ do
-      activeSpanM <- readIORef tracerActiveSpan
+      activeSpanM <- readActiveSpan tracer
       case activeSpanM of
         Nothing -> app req onResponse
         Just activeSpan ->

@@ -42,3 +42,16 @@ library
                        base64-bytestring
   hs-source-dirs:      src, src-gen
   default-language:    Haskell2010
+
+Test-Suite test-jaeger-client
+    type:       exitcode-stdio-1.0
+    hs-source-dirs: test
+    main-is:    Test.hs
+    other-extensions:    OverloadedStrings
+    build-depends: base
+                 , async
+                 , bytestring
+                 , jaeger-client
+                 , text
+                 , hspec
+                 , hspec-discover

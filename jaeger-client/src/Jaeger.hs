@@ -1,15 +1,17 @@
-{-# LANGUAGE DeriveAnyClass    #-}
-{-# LANGUAGE DeriveGeneric     #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE NamedFieldPuns    #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecordWildCards   #-}
+{-# LANGUAGE DeriveAnyClass      #-}
+{-# LANGUAGE DeriveGeneric       #-}
+{-# LANGUAGE FlexibleInstances   #-}
+{-# LANGUAGE NamedFieldPuns      #-}
+{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE RecordWildCards     #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module Jaeger where
 
 import qualified Agent                          as Thrift
 import           Codec.Serialise
 import qualified Collector                      as Thrift
+import           Control.Concurrent             (ThreadId, myThreadId)
 import           Control.Exception
 import           Control.Monad
 import           Control.Monad                  (msum)
@@ -44,13 +46,15 @@ import qualified Thrift.Types                   as Thrift
 
 data Reference = ChildOf !SpanContext | FollowsFrom !SpanContext
 
+type TraceId = Int64
+
 data Span = Span
   { spanOperationName :: !Text
   , spanOpenedAt      :: !POSIXTime
   , spanMonotonicTime :: !TimeSpec
-  , spanId            :: !Int64
+  , spanId            :: !TraceId
   , spanParent        :: !(Maybe Span)
-  , spanTraceId       :: !Int64
+  , spanTraceId       :: !TraceId
   , spanDuration      :: !(Maybe Int64)
   , spanTags          :: !(Map.Map Text TagValue)
   , spanReferences    :: ![Reference]
@@ -73,7 +77,7 @@ data Tracer = Tracer
   { tracerSocket        :: !Socket
   , tracerWriteBuffer   :: !Thrift.WriteBuffer
   , tracerConfiguration :: !TracerConfiguration
-  , tracerActiveSpan    :: !(IORef (Maybe Span))
+  , tracerActiveSpan    :: !(IORef (Map.Map ThreadId Span))
   , tracerIdGenerator   :: !(IO Int64)
   }
 
@@ -121,12 +125,10 @@ openTracer tracerConfiguration@TracerConfiguration{tracerHostName, tracerPort, t
       Thrift.newWriteBuffer
 
     tracerActiveSpan <-
-      newIORef Nothing
+      newIORef mempty
 
     return Tracer { tracerIdGenerator = randomIO, ..}
 
-
-type TraceId = Int64
 
 inSpan :: Tracer -> Text -> Maybe TraceId -> IO a -> IO a
 inSpan tracer@Tracer{tracerActiveSpan, tracerIdGenerator} spanOperationName traceIdM io =
@@ -153,7 +155,7 @@ inSpan tracer@Tracer{tracerActiveSpan, tracerIdGenerator} spanOperationName trac
           tracerIdGenerator
 
         spanParent <-
-          readIORef tracerActiveSpan
+          readActiveSpan tracer
 
         spanTraceId <-
           case traceIdM of
@@ -170,7 +172,7 @@ inSpan tracer@Tracer{tracerActiveSpan, tracerIdGenerator} spanOperationName trac
                  , ..
                  }
 
-        writeIORef tracerActiveSpan (Just span)
+        writeActiveSpan tracer span
 
     finish spanParent =
       do
@@ -186,10 +188,20 @@ inSpan tracer@Tracer{tracerActiveSpan, tracerIdGenerator} spanOperationName trac
           reportSpan tracer span
             { spanDuration =
                 Just
-                  (toMicroSeconds
-                    (diffTimeSpec completed (spanMonotonicTime span)))
-            }
+                (toMicroSeconds
+                  (diffTimeSpec completed (spanMonotonicTime span)))
+            }   `catch` \ (_ :: IOException) -> pure ()
 
+writeActiveSpan :: Tracer -> Span -> IO ()
+writeActiveSpan Tracer{tracerActiveSpan} span = do
+  tid <- myThreadId
+  atomicModifyIORef tracerActiveSpan (\ m -> (Map.insert tid span m, ()))
+
+readActiveSpan :: Tracer -> IO (Maybe Span)
+readActiveSpan Tracer{tracerActiveSpan} = do
+  active <- readIORef tracerActiveSpan
+  tid <- myThreadId
+  pure $ Map.lookup tid active
 
 tagActiveSpan :: Tracer -> Text -> TagValue -> IO ()
 tagActiveSpan Tracer{tracerActiveSpan} k v =

@@ -39,8 +39,8 @@ spec = parallel $ describe "OpenTracing WAI Middleware" $ do
 
 
 echoHeadersApp :: Tracer -> Application
-echoHeadersApp Tracer{tracerActiveSpan} req resp =
+echoHeadersApp tracer req resp =
   let hdrs = requestHeaders req
   in do
-    sp <- maybe "" (show . spanTraceId) <$> readIORef tracerActiveSpan
+    sp <- maybe "" (show . spanTraceId) <$> readActiveSpan tracer
     resp $ responseLBS status200 hdrs (LBS.pack sp)
