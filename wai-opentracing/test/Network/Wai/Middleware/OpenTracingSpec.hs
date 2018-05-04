@@ -18,7 +18,7 @@ spec = parallel $ describe "OpenTracing WAI Middleware" $ do
 
     let tr = t { tracerIdGenerator = pure 1234 }
 
-    resp <- runSession (request defaultRequest) $ openTracingMiddleware t $ echoHeadersApp
+    resp <- runSession (request defaultRequest) $ openTracingMiddleware tr $ echoHeadersApp
 
     simpleHeaders resp `shouldBe` [(tracingHeader, "1234")]
 

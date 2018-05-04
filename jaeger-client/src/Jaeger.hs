@@ -127,8 +127,9 @@ openTracer tracerConfiguration@TracerConfiguration{tracerHostName, tracerPort, t
 
 
 type TraceId = Int64
+
 inSpan :: Tracer -> Text -> Maybe TraceId -> IO a -> IO a
-inSpan tracer@Tracer{tracerActiveSpan} spanOperationName traceIdM io =
+inSpan tracer@Tracer{tracerActiveSpan, tracerIdGenerator} spanOperationName traceIdM io =
   do
     spanParent <-
       readIORef tracerActiveSpan
@@ -149,7 +150,7 @@ inSpan tracer@Tracer{tracerActiveSpan} spanOperationName traceIdM io =
           getTime Monotonic
 
         spanId <-
-          randomIO
+          tracerIdGenerator
 
         spanParent <-
           readIORef tracerActiveSpan
@@ -158,7 +159,7 @@ inSpan tracer@Tracer{tracerActiveSpan} spanOperationName traceIdM io =
           case traceIdM of
             Just traceId -> pure traceId
             Nothing ->
-              maybe randomIO pure (fmap spanTraceId spanParent)
+              maybe tracerIdGenerator pure (fmap spanTraceId spanParent)
 
         let
           span =
