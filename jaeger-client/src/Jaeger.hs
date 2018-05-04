@@ -92,18 +92,20 @@ instance Thrift.Transport Tracer where
 
 
 data TracerConfiguration = TracerConfiguration
-  { tracerServiceName :: !Text
+  { tracerHostName    :: !String
+  , tracerPort        :: !String
+  , tracerServiceName :: !Text
   }
 
 
 openTracer :: TracerConfiguration -> IO Tracer
-openTracer tracerConfiguration =
+openTracer tracerConfiguration@TracerConfiguration{tracerHostName, tracerPort, tracerServiceName} =
   do
     addr : _ <-
       getAddrInfo
         (Just defaultHints { addrSocketType = Datagram })
-        (Just "127.0.0.1")
-        (Just "6831")
+        (Just tracerHostName)
+        (Just tracerPort)
 
     tracerSocket <-
       socket (addrFamily addr) (addrSocketType addr) (addrProtocol addr)

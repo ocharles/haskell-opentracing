@@ -12,7 +12,7 @@ import           Web.Scotty
 main :: IO ()
 main = do
   t <-
-    openTracer TracerConfiguration { tracerServiceName = "test-exe" }
+    openTracer TracerConfiguration { tracerHostName ="127.0.0.1", tracerPort ="6831", tracerServiceName = "test-exe" }
 
 --  runTracingT TestLib.hello t
 
