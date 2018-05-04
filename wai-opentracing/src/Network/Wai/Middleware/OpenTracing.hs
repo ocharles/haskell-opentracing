@@ -3,6 +3,7 @@
 
 module Network.Wai.Middleware.OpenTracing where
 
+import           Data.ByteString           (ByteString)
 import           Data.IORef
 import           Data.List                 (find)
 import qualified Data.Text                 as T
@@ -25,17 +26,26 @@ import           Network.Wai
 -- identifier so that downstream spans can be correctly linked to the whole request.
 openTracingMiddleware :: Tracer -> Middleware
 openTracingMiddleware tracer@(Tracer {tracerActiveSpan}) app = \req onResponse ->
-  inSpan tracer (T.intercalate "/" (pathInfo req)) (getTracingHeaderVal $ requestHeaders req) $ do
+  let parentIdM = getTracingHeaderVal $ requestHeaders req in
+  inSpan tracer (T.intercalate "/" (pathInfo req)) parentIdM $ do
       activeSpanM <- readIORef tracerActiveSpan
       case activeSpanM of
         Nothing -> app req onResponse
         Just activeSpan ->
-          app req{requestHeaders = (tracingHeader, encodeUtf8 $ T.pack $ show $ spanId activeSpan) : (requestHeaders req)} onResponse
+          app req{requestHeaders = replaceTracingHeader parentIdM (encodeUtf8 $ T.pack $ show $ spanId activeSpan) (requestHeaders req)} onResponse
 
 getTracingHeaderVal :: RequestHeaders -> Maybe TraceId
 getTracingHeaderVal headers = do
   (_, valueBS) <- find (\(headerName, _) -> headerName == tracingHeader) headers
   case decimal $ decodeUtf8 valueBS of
-    Left _            -> Nothing
-    Right (_, "")     -> Nothing
-    Right (value, _ ) -> Just value
+    Left _           -> Nothing
+    Right (value, _) -> Just value
+
+
+replaceTracingHeader :: Maybe TraceId -> ByteString -> RequestHeaders -> RequestHeaders
+replaceTracingHeader Nothing  traceId headers = (tracingHeader, traceId) : headers
+replaceTracingHeader _        traceId headers = map doReplace headers
+  where
+    doReplace hdr@(headerName, _)
+      | headerName == tracingHeader = (headerName, traceId)
+      | otherwise                   = hdr
