@@ -45,6 +45,7 @@ import qualified Thrift.Transport.IOBuffer      as Thrift
 import qualified Thrift.Types                   as Thrift
 
 data Reference = ChildOf !SpanContext | FollowsFrom !SpanContext
+  deriving (Eq, Show)
 
 type TraceId = Int64
 
@@ -60,6 +61,7 @@ data Span = Span
   , spanReferences    :: ![Reference]
   , spanBaggage       :: !(Map.Map Text Text)
   }
+  deriving (Eq, Show)
 
 
 data TagValue
@@ -68,6 +70,7 @@ data TagValue
   | DoubleTag !Double
   | IntTag !Int64
   | BinaryTag !LBS.ByteString
+  deriving (Eq, Show)
 
 intTag = IntTag
 boolTag = BoolTag
@@ -145,7 +148,7 @@ popSpan tracer spanParent =
   do
     span <- readActiveSpan tracer
 
-    maybe (pure ()) (writeActiveSpan tracer) spanParent
+    maybe (clearActiveSpan tracer) (writeActiveSpan tracer) spanParent
 
     completed <-
       getTime Monotonic
@@ -192,6 +195,11 @@ pushSpan tracer@Tracer{tracerActiveSpan, tracerIdGenerator}  spanOperationName  
     writeActiveSpan tracer span
 
     pure spanParent
+
+clearActiveSpan :: Tracer -> IO ()
+clearActiveSpan Tracer{tracerActiveSpan} = do
+  tid <- myThreadId
+  atomicModifyIORef tracerActiveSpan (\ m -> (Map.delete tid m, ()))
 
 writeActiveSpan :: Tracer -> Span -> IO ()
 writeActiveSpan Tracer{tracerActiveSpan} span = do
@@ -382,7 +390,7 @@ data SpanContext = SpanContext
   { sctxTraceId :: !Int64
   , sctxSpanId  :: !Int64
   }
-  deriving (Generic, Serialise)
+  deriving (Eq, Show, Generic, Serialise)
 
 
 activeSpanFollowsFrom :: Tracer -> SpanContext -> IO ()
