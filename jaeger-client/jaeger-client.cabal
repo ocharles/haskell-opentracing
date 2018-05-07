@@ -23,6 +23,8 @@ library
                        Agent_Iface
                        Agent_Types
                        Zipkincore_Types
+                       Jaeger.Tracer
+                       Jaeger.Types
   other-extensions:    DeriveDataTypeable, DeriveGeneric, OverloadedStrings
   build-depends:       QuickCheck,
                        base,
