@@ -42,9 +42,6 @@ data Tracer = Tracer
   }
 
 
-tracingHeader :: HeaderName
-tracingHeader = "uber-tracing-id"
-
 
 instance Thrift.Transport Tracer where
   tFlush t =
@@ -305,10 +302,6 @@ toMicroSeconds :: TimeSpec -> Int64
 toMicroSeconds ts =
   round (fromIntegral (toNanoSecs ts) / (1000 :: Double))
 
-
-spanHeader :: HeaderName
-spanHeader =
-  "X-OpenTracing-Span"
 
 
 activeSpanFollowsFrom :: Tracer -> SpanContext -> IO ()
