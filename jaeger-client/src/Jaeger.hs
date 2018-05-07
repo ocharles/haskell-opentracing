@@ -133,64 +133,65 @@ openTracer tracerConfiguration@TracerConfiguration{tracerHostName, tracerPort, t
 inSpan :: Tracer -> Text -> Maybe TraceId -> IO a -> IO a
 inSpan tracer@Tracer{tracerActiveSpan, tracerIdGenerator} spanOperationName traceIdM io =
   do
-    spanParent <-
-      readIORef tracerActiveSpan
-
-    bracket_
-      prepareSpan
-      (finish spanParent)
-      io
+    bracket
+      (pushSpan tracer spanOperationName traceIdM)
+      (popSpan tracer)
+      (const io)
 
   where
 
-    prepareSpan =
-      do
-        spanOpenedAt <-
-          getPOSIXTime
+popSpan :: Tracer -> Maybe Span -> IO ()
+popSpan tracer spanParent =
+  do
+    span <- readActiveSpan tracer
 
-        spanMonotonicTime <-
-          getTime Monotonic
+    maybe (pure ()) (writeActiveSpan tracer) spanParent
 
-        spanId <-
-          tracerIdGenerator
+    completed <-
+      getTime Monotonic
 
-        spanParent <-
-          readActiveSpan tracer
+    for_ span $ \span ->
+      reportSpan tracer span
+        { spanDuration =
+            Just
+            (toMicroSeconds
+              (diffTimeSpec completed (spanMonotonicTime span)))
+        }   `catch` \ (_ :: IOException) -> pure ()
 
-        spanTraceId <-
-          case traceIdM of
-            Just traceId -> pure traceId
-            Nothing ->
-              maybe tracerIdGenerator pure (fmap spanTraceId spanParent)
 
-        let
-          span =
-            Span { spanDuration = Nothing
-                 , spanTags = mempty
-                 , spanReferences = []
-                 , spanBaggage = mempty
-                 , ..
-                 }
+pushSpan :: Tracer -> Text -> Maybe TraceId -> IO (Maybe Span)
+pushSpan tracer@Tracer{tracerActiveSpan, tracerIdGenerator}  spanOperationName  traceIdM =
+  do
+    spanOpenedAt <-
+      getPOSIXTime
 
-        writeActiveSpan tracer span
+    spanMonotonicTime <-
+      getTime Monotonic
 
-    finish spanParent =
-      do
-        span <-
-          readIORef tracerActiveSpan
+    spanId <-
+      tracerIdGenerator
 
-        writeIORef tracerActiveSpan spanParent
+    spanParent <-
+      readActiveSpan tracer
 
-        completed <-
-          getTime Monotonic
+    spanTraceId <-
+      case traceIdM of
+        Just traceId -> pure traceId
+        Nothing ->
+          maybe tracerIdGenerator pure (fmap spanTraceId spanParent)
 
-        for_ span $ \span ->
-          reportSpan tracer span
-            { spanDuration =
-                Just
-                (toMicroSeconds
-                  (diffTimeSpec completed (spanMonotonicTime span)))
-            }   `catch` \ (_ :: IOException) -> pure ()
+    let
+      span =
+        Span { spanDuration = Nothing
+             , spanTags = mempty
+             , spanReferences = []
+             , spanBaggage = mempty
+             , ..
+             }
+
+    writeActiveSpan tracer span
+
+    pure spanParent
 
 writeActiveSpan :: Tracer -> Span -> IO ()
 writeActiveSpan Tracer{tracerActiveSpan} span = do
