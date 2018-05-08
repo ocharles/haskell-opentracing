@@ -90,19 +90,19 @@ openTracer tracerConfiguration@TracerConfiguration{tracerHostName, tracerPort} =
 inSpan :: Tracer -> Text -> Maybe TraceId -> IO a -> IO a
 inSpan tracer spanOperationName traceIdM io =
   do
-    bracket
+    bracket_
       (pushSpan tracer spanOperationName traceIdM)
       (popSpan tracer)
-      (const io)
+      io
 
   where
 
-popSpan :: Tracer -> Maybe Span -> IO ()
-popSpan tracer spanParent =
+popSpan :: Tracer -> IO ()
+popSpan tracer =
   do
     activeSpan <- readActiveSpan tracer
 
-    maybe (clearActiveSpan tracer) (writeActiveSpan tracer) spanParent
+    maybe (clearActiveSpan tracer) (writeActiveSpan tracer) (spanParent =<< activeSpan)
 
     completed <-
       getTime Monotonic
@@ -116,7 +116,7 @@ popSpan tracer spanParent =
         }   `catch` \ (_ :: IOException) -> pure ()
 
 
-pushSpan :: Tracer -> Text -> Maybe TraceId -> IO (Maybe Span)
+pushSpan :: Tracer -> Text -> Maybe TraceId -> IO ()
 pushSpan tracer@Tracer{tracerIdGenerator}  spanOperationName  traceIdM =
   do
     spanOpenedAt <-
@@ -148,7 +148,6 @@ pushSpan tracer@Tracer{tracerIdGenerator}  spanOperationName  traceIdM =
 
     writeActiveSpan tracer newSpan
 
-    pure spanParent
 
 clearActiveSpan :: Tracer -> IO ()
 clearActiveSpan Tracer{tracerActiveSpan} = do

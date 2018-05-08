@@ -21,14 +21,14 @@ spec = describe "Jaeger Client" $ do
   it "clears active span when popping span" $ do
     t <- openTracer (TracerConfiguration "localhost" "9999" "service")
 
-    pushSpan t "foo" Nothing  >>= popSpan t
+    pushSpan t "foo" Nothing  >> popSpan t
 
     fmap spanId <$> readActiveSpan t `shouldReturn` Nothing
 
   it "resets active span to parent span when popping span" $ do
     t <- openTracer (TracerConfiguration "localhost" "9999" "service")
 
-    pushSpan t "bar" Nothing >> pushSpan t "foo" Nothing  >>= popSpan t
+    pushSpan t "bar" Nothing >> pushSpan t "foo" Nothing  >> popSpan t
 
     fmap spanOperationName <$> readActiveSpan t `shouldReturn` Just "bar"
 
