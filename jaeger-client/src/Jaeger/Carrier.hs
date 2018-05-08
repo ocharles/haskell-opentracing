@@ -27,10 +27,6 @@ class Carrier a where
 tracingHeader :: HeaderName
 tracingHeader = "uber-tracing-id"
 
-spanHeader :: HeaderName
-spanHeader =
-  "X-OpenTracing-Span"
-
 decodeSpanContext :: LBS.ByteString -> Maybe SpanContext
 decodeSpanContext bs =
   case LBS.split (fromIntegral $ fromEnum ':') bs of
@@ -54,7 +50,7 @@ instance Carrier [Header] where
 
   inject _ sp headers =
     (tracingHeader, LBS.toStrict . encodeSpanContext $ spanToSpanContext sp)
-      : filter (\(n, _) -> n /= spanHeader) headers
+      : filter (\(n, _) -> n /= tracingHeader) headers
 
 instance Carrier (Map.Map Text Text) where
   extract _ =

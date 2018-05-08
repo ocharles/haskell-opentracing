@@ -27,7 +27,7 @@ spec = describe "Jaeger HTTP Header Handling" $ do
 
     Just sp <- pushSpan detTr "foo" Nothing >> readActiveSpan t
 
-    inject detTr sp [ ] `shouldBe` [(tracingHeader, "00000000499602d2:00000000499602d2:00:00") :: Header]
+    inject detTr sp [(tracingHeader, "00:00:00:00")] `shouldBe` [(tracingHeader, "00000000499602d2:00000000499602d2:00:00") :: Header]
 
 
 sampleHeader :: Header

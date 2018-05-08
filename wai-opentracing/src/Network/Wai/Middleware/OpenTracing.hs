@@ -26,26 +26,11 @@ import           Network.Wai
 -- identifier so that downstream spans can be correctly linked to the whole request.
 openTracingMiddleware :: Tracer -> Middleware
 openTracingMiddleware tracer@(Tracer {tracerActiveSpan}) app = \req onResponse ->
-  let parentIdM = getTracingHeaderVal $ requestHeaders req in
-  inSpan tracer (T.intercalate "/" (pathInfo req)) parentIdM $ do
-      activeSpanM <- readActiveSpan tracer
-      case activeSpanM of
-        Nothing -> app req onResponse
-        Just activeSpan ->
-          app req{requestHeaders = replaceTracingHeader parentIdM (encodeUtf8 $ T.pack $ show $ spanId activeSpan) (requestHeaders req)} onResponse
-
-getTracingHeaderVal :: RequestHeaders -> Maybe TraceId
-getTracingHeaderVal headers = do
-  (_, valueBS) <- find (\(headerName, _) -> headerName == tracingHeader) headers
-  case decimal $ decodeUtf8 valueBS of
-    Left _           -> Nothing
-    Right (value, _) -> Just value
-
-
-replaceTracingHeader :: Maybe TraceId -> ByteString -> RequestHeaders -> RequestHeaders
-replaceTracingHeader Nothing  traceId headers = (tracingHeader, traceId) : headers
-replaceTracingHeader _        traceId headers = map doReplace headers
-  where
-    doReplace hdr@(headerName, _)
-      | headerName == tracingHeader = (headerName, traceId)
-      | otherwise                   = hdr
+  let parentIdM = extract tracer $ requestHeaders req in
+  inSpan tracer (T.intercalate "/" (pathInfo req)) (sctxTraceId <$> parentIdM) $ do
+    maybe (pure ()) (activeSpanIsAChildOf tracer) parentIdM
+    activeSpanM <- readActiveSpan tracer
+    case activeSpanM of
+      Nothing -> app req onResponse
+      Just activeSpan ->
+        app req {requestHeaders = inject tracer activeSpan (requestHeaders req)} onResponse
