@@ -52,6 +52,11 @@ instance Carrier [Header] where
     (tracingHeader, LBS.toStrict . encodeSpanContext $ spanToSpanContext sp)
       : filter (\(n, _) -> n /= tracingHeader) headers
 
+instance Carrier Text where
+  extract _ = decodeSpanContext . LBS.fromStrict . encodeUtf8
+  inject _ sp _ = decodeUtf8 . LBS.toStrict . encodeSpanContext $ spanToSpanContext sp
+
+
 instance Carrier (Map.Map Text Text) where
   extract _ =
     hush . deserialiseOrFail . LBS.fromStrict <=<
