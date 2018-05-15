@@ -25,7 +25,7 @@ class Carrier a where
   extract :: Tracer -> a -> Maybe SpanContext
 
 tracingHeader :: HeaderName
-tracingHeader = "uber-tracing-id"
+tracingHeader = "uber-trace-id"
 
 decodeSpanContext :: LBS.ByteString -> Maybe SpanContext
 decodeSpanContext bs =
