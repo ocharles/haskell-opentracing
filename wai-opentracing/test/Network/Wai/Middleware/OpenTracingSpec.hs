@@ -23,18 +23,18 @@ spec = parallel $ describe "OpenTracing WAI Middleware" $ do
 
     resp <- runSession (request defaultRequest) $ openTracingMiddleware tr $ echoHeadersApp tr
 
-    simpleHeaders resp `shouldBe` [(tracingHeader, "00000000499602d2:00000000499602d2:00:00")]
+    simpleHeaders resp `shouldBe` [(tracingHeader, "00000000499602d2:00000000499602d2:00:1")]
 
   it "replace tracing header on request and use previous value as parent id given tracing header is set" $ do
     t <- openTracer (TracerConfiguration "localhost" "9999" "service")
 
     let tr = t { tracerIdGenerator = pure 4567890123 }
 
-    let req = defaultRequest { requestHeaders = [ (tracingHeader, "00000000499602d2:00000000499602d2:00:00") ] }
+    let req = defaultRequest { requestHeaders = [ (tracingHeader, "00000000499602d2:00000000499602d2:00:1") ] }
 
     resp <- runSession (request req) $ openTracingMiddleware tr $ echoHeadersApp tr
 
-    simpleHeaders resp `shouldBe` [(tracingHeader, "00000000499602d2:00000001104478cb:00:00")]
+    simpleHeaders resp `shouldBe` [(tracingHeader, "00000000499602d2:00000001104478cb:00:1")]
     simpleBody resp `shouldBe` "1234567890"
 
 

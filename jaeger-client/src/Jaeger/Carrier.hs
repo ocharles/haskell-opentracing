@@ -14,6 +14,7 @@ import           Data.Int
 import qualified Data.Map.Strict             as Map
 import           Data.Monoid
 import qualified Data.Serialize              as Ser
+import           Data.String
 import           Data.Text                   (Text)
 import           Data.Text.Encoding
 import           Jaeger.Tracer
@@ -27,6 +28,9 @@ class Carrier a where
 tracingHeader :: HeaderName
 tracingHeader = "uber-trace-id"
 
+defaultEncodedSuffix :: (IsString a) => a
+defaultEncodedSuffix = ":00:1"
+
 decodeSpanContext :: LBS.ByteString -> Maybe SpanContext
 decodeSpanContext bs =
   case LBS.split (fromIntegral $ fromEnum ':') bs of
@@ -34,7 +38,7 @@ decodeSpanContext bs =
     _                 -> Nothing
 
 encodeSpanContext :: SpanContext -> LBS.ByteString
-encodeSpanContext (SpanContext tid spid) = fromInt64 tid <> ":" <> fromInt64 spid <> ":00:00"
+encodeSpanContext (SpanContext tid spid) = fromInt64 tid <> ":" <> fromInt64 spid <> defaultEncodedSuffix
 
 toInt64 :: LBS.ByteString -> Maybe Int64
 toInt64 = either (const Nothing) Just . Ser.decode . LBS.toStrict . fst . Hex.decode

@@ -3,11 +3,11 @@ module Jaeger.CarrierSpec where
 
 import           Data.List
 import           Data.Maybe
+import           Data.Monoid
 import           Data.Text
 import           Jaeger
 import           Network.HTTP.Types.Header (Header)
 import           Test.Hspec
-
 
 spec :: Spec
 spec = describe "Jaeger HTTP Header Handling" $ do
@@ -27,14 +27,14 @@ spec = describe "Jaeger HTTP Header Handling" $ do
 
     Just sp <- pushSpan t "foo" Nothing >> readActiveSpan t
 
-    inject t sp [(tracingHeader, "00:00:00:00")] `shouldBe` [(tracingHeader, "00000000499602d2:00000000499602d2:00:00") :: Header]
+    inject t sp [(tracingHeader, "00:00:00:00")] `shouldBe` [(tracingHeader, "00000000499602d2:00000000499602d2" <> defaultEncodedSuffix) :: Header]
 
   it "injects span and trace IDs as Text" $ do
     t <- detTr <$> openTracer (TracerConfiguration "localhost" "9999" "service")
 
     Just sp <- pushSpan t "foo" Nothing >> readActiveSpan t
 
-    inject t sp "" `shouldBe` ("00000000499602d2:00000000499602d2:00:00" :: Text)
+    inject t sp "" `shouldBe` ("00000000499602d2:00000000499602d2" <> defaultEncodedSuffix :: Text)
 
 
 sampleHeader :: Header
