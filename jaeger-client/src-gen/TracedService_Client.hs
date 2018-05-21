@@ -13,7 +13,8 @@
 -- DO NOT EDIT UNLESS YOU ARE SURE YOU KNOW WHAT YOU ARE DOING --
 -----------------------------------------------------------------
 
-module ZipkinCollector_Iface where
+module TracedService_Client(startTrace,joinTrace) where
+import qualified Data.IORef as R
 import Prelude (($), (.), (>>=), (==), (++))
 import qualified Prelude as P
 import qualified Control.Exception as X
@@ -38,7 +39,32 @@ import qualified Thrift.Types as T
 import qualified Thrift.Arbitraries as T
 
 
-import Zipkincore_Types
-
-class ZipkinCollector_Iface a where
-  submitZipkinBatch :: a -> (Vector.Vector Span) -> P.IO (Vector.Vector Response)
+import Tracetest_Types
+import TracedService
+seqid = R.newIORef 0
+startTrace (ip,op) arg_request = do
+  send_startTrace op arg_request
+  recv_startTrace ip
+send_startTrace op arg_request = do
+  seq <- seqid
+  seqn <- R.readIORef seq
+  T.writeMessage op ("startTrace", T.M_CALL, seqn) $
+    write_StartTrace_args op (StartTrace_args{startTrace_args_request=arg_request})
+recv_startTrace ip = do
+  T.readMessage ip $ \(fname, mtype, rseqid) -> do
+    M.when (mtype == T.M_EXCEPTION) $ do { exn <- T.readAppExn ip ; X.throw exn }
+    res <- read_StartTrace_result ip
+    P.return $ startTrace_result_success res
+joinTrace (ip,op) arg_request = do
+  send_joinTrace op arg_request
+  recv_joinTrace ip
+send_joinTrace op arg_request = do
+  seq <- seqid
+  seqn <- R.readIORef seq
+  T.writeMessage op ("joinTrace", T.M_CALL, seqn) $
+    write_JoinTrace_args op (JoinTrace_args{joinTrace_args_request=arg_request})
+recv_joinTrace ip = do
+  T.readMessage ip $ \(fname, mtype, rseqid) -> do
+    M.when (mtype == T.M_EXCEPTION) $ do { exn <- T.readAppExn ip ; X.throw exn }
+    res <- read_JoinTrace_result ip
+    P.return $ joinTrace_result_success res

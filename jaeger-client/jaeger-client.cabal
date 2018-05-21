@@ -1,0 +1,63 @@
+name:                jaeger-client
+version:             0.1.0.0
+-- synopsis:
+-- description:
+license:             BSD3
+license-file:        LICENSE
+author:              Oliver Charles
+maintainer:          ollie@ocharles.org.uk
+-- copyright:
+-- category:
+build-type:          Simple
+extra-source-files:  ChangeLog.md
+cabal-version:       >=1.10
+
+library
+  exposed-modules:     Jaeger
+  other-modules:       Collector_Iface
+                       Jaeger_Consts
+                       Collector_Client
+                       Collector
+                       Jaeger_Types
+                       Agent
+                       Agent_Iface
+                       Agent_Types
+                       Zipkincore_Types
+                       Jaeger.Carrier
+                       Jaeger.Tracer
+                       Jaeger.Types
+  other-extensions:    DeriveDataTypeable, DeriveGeneric, OverloadedStrings
+  build-depends:       QuickCheck,
+                       base,
+                       bytestring,
+                       cereal,
+                       clock,
+                       containers,
+                       hashable ,
+                       network ,
+                       random ,
+                       text ,
+                       thrift,
+                       time ,
+                       unordered-containers ,
+                       vector ,
+                       http-types,
+                       serialise,
+                       base64-bytestring,
+                       base16-bytestring
+  hs-source-dirs:      src, src-gen
+  default-language:    Haskell2010
+
+Test-Suite test-jaeger-client
+    type:       exitcode-stdio-1.0
+    hs-source-dirs: test
+    main-is:    Test.hs
+    other-extensions:    OverloadedStrings
+    build-depends: base
+                 , async
+                 , bytestring
+                 , http-types
+                 , jaeger-client
+                 , text
+                 , hspec
+                 , hspec-discover

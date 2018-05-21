@@ -13,7 +13,8 @@
 -- DO NOT EDIT UNLESS YOU ARE SURE YOU KNOW WHAT YOU ARE DOING --
 -----------------------------------------------------------------
 
-module ZipkinCollector_Iface where
+module SamplingManager_Client(getSamplingStrategy) where
+import qualified Data.IORef as R
 import Prelude (($), (.), (>>=), (==), (++))
 import qualified Prelude as P
 import qualified Control.Exception as X
@@ -38,7 +39,19 @@ import qualified Thrift.Types as T
 import qualified Thrift.Arbitraries as T
 
 
-import Zipkincore_Types
-
-class ZipkinCollector_Iface a where
-  submitZipkinBatch :: a -> (Vector.Vector Span) -> P.IO (Vector.Vector Response)
+import Sampling_Types
+import SamplingManager
+seqid = R.newIORef 0
+getSamplingStrategy (ip,op) arg_serviceName = do
+  send_getSamplingStrategy op arg_serviceName
+  recv_getSamplingStrategy ip
+send_getSamplingStrategy op arg_serviceName = do
+  seq <- seqid
+  seqn <- R.readIORef seq
+  T.writeMessage op ("getSamplingStrategy", T.M_CALL, seqn) $
+    write_GetSamplingStrategy_args op (GetSamplingStrategy_args{getSamplingStrategy_args_serviceName=arg_serviceName})
+recv_getSamplingStrategy ip = do
+  T.readMessage ip $ \(fname, mtype, rseqid) -> do
+    M.when (mtype == T.M_EXCEPTION) $ do { exn <- T.readAppExn ip ; X.throw exn }
+    res <- read_GetSamplingStrategy_result ip
+    P.return $ getSamplingStrategy_result_success res

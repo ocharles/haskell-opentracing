@@ -13,7 +13,8 @@
 -- DO NOT EDIT UNLESS YOU ARE SURE YOU KNOW WHAT YOU ARE DOING --
 -----------------------------------------------------------------
 
-module ZipkinCollector_Iface where
+module BaggageRestrictionManager_Client(getBaggageRestrictions) where
+import qualified Data.IORef as R
 import Prelude (($), (.), (>>=), (==), (++))
 import qualified Prelude as P
 import qualified Control.Exception as X
@@ -38,7 +39,19 @@ import qualified Thrift.Types as T
 import qualified Thrift.Arbitraries as T
 
 
-import Zipkincore_Types
-
-class ZipkinCollector_Iface a where
-  submitZipkinBatch :: a -> (Vector.Vector Span) -> P.IO (Vector.Vector Response)
+import Baggage_Types
+import BaggageRestrictionManager
+seqid = R.newIORef 0
+getBaggageRestrictions (ip,op) arg_serviceName = do
+  send_getBaggageRestrictions op arg_serviceName
+  recv_getBaggageRestrictions ip
+send_getBaggageRestrictions op arg_serviceName = do
+  seq <- seqid
+  seqn <- R.readIORef seq
+  T.writeMessage op ("getBaggageRestrictions", T.M_CALL, seqn) $
+    write_GetBaggageRestrictions_args op (GetBaggageRestrictions_args{getBaggageRestrictions_args_serviceName=arg_serviceName})
+recv_getBaggageRestrictions ip = do
+  T.readMessage ip $ \(fname, mtype, rseqid) -> do
+    M.when (mtype == T.M_EXCEPTION) $ do { exn <- T.readAppExn ip ; X.throw exn }
+    res <- read_GetBaggageRestrictions_result ip
+    P.return $ getBaggageRestrictions_result_success res

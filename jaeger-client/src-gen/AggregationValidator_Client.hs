@@ -13,7 +13,8 @@
 -- DO NOT EDIT UNLESS YOU ARE SURE YOU KNOW WHAT YOU ARE DOING --
 -----------------------------------------------------------------
 
-module ZipkinCollector_Iface where
+module AggregationValidator_Client(validateTrace) where
+import qualified Data.IORef as R
 import Prelude (($), (.), (>>=), (==), (++))
 import qualified Prelude as P
 import qualified Control.Exception as X
@@ -38,7 +39,19 @@ import qualified Thrift.Types as T
 import qualified Thrift.Arbitraries as T
 
 
-import Zipkincore_Types
-
-class ZipkinCollector_Iface a where
-  submitZipkinBatch :: a -> (Vector.Vector Span) -> P.IO (Vector.Vector Response)
+import Aggregation_validator_Types
+import AggregationValidator
+seqid = R.newIORef 0
+validateTrace (ip,op) arg_traceId = do
+  send_validateTrace op arg_traceId
+  recv_validateTrace ip
+send_validateTrace op arg_traceId = do
+  seq <- seqid
+  seqn <- R.readIORef seq
+  T.writeMessage op ("validateTrace", T.M_CALL, seqn) $
+    write_ValidateTrace_args op (ValidateTrace_args{validateTrace_args_traceId=arg_traceId})
+recv_validateTrace ip = do
+  T.readMessage ip $ \(fname, mtype, rseqid) -> do
+    M.when (mtype == T.M_EXCEPTION) $ do { exn <- T.readAppExn ip ; X.throw exn }
+    res <- read_ValidateTrace_result ip
+    P.return $ validateTrace_result_success res
